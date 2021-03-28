@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,7 +15,12 @@ type Transaction struct {
 	From 	Account `json: "from"`
 	To 		Account `json: "to"`
 	Value 	uint 	`json: "value`
-	Data 	string 	`json: "data"`
+	// Data 	string 	`json: "data"`
+}
+
+type Block struct {
+	PrevHash string
+	T Transaction
 }
 
 type State struct {
@@ -32,6 +38,18 @@ type State struct {
 // 	bVal, _ := ioutil.ReadAll(jsonFile)
 
 // } 
+
+func hashBlock(b Block) (string) {
+	s := fmt.Sprintf("%v", b)
+	hS := sha256.Sum256([]byte(s))
+	hash := fmt.Sprintf("%x", hS[:])
+	return hash
+}
+
+func transactionToString(t Transaction) (string, error) {
+
+	return "hi", nil
+}
 
 func loadToMap(path string) (map[string]interface{}, error) {
 	jsonFile, err := os.Open(path)
@@ -77,25 +95,28 @@ func stateFromDisk() (*State, error) {
 }
 
 func main() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// cwd, err := os.Getwd()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	dbFilePath := filepath.Join(cwd, "data", "genesis.json")
-	// Load genesis database
+	// dbFilePath := filepath.Join(cwd, "data", "genesis.json")
+	// // Load genesis database
 	
-	if err != nil {
-		fmt.Println(err)
-	}
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	var genFile map[string]interface{}
-	genFile, err = loadToMap(dbFilePath)
+	// var genFile map[string]interface{}
+	// genFile, err = loadToMap(dbFilePath)
 
-	if err != nil {
-		fmt.Println(err)
-	}
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	fmt.Println(genFile["balances"].(map[string]interface{})["person"])
+	newT := Transaction{From:"Sahil", To:"John", Value: 10000}
+	newB := Block{PrevHash: "0", T: newT}
 
+	newH := hashBlock(newB)
+	fmt.Println(newH)
 }

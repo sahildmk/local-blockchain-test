@@ -36,16 +36,17 @@ type State struct {
 
 type Chain struct {
 	chain []Block
+	chainID string
 }
 
-func newChain() (Chain) {
+func newChain(chainID string) (Chain) {
 	token := []byte(time.Now().String())
 	hS := sha256.Sum256(token)
 	hash := fmt.Sprintf("%x", hS[:])
 	newB := createBlock(hash, Transaction{"Genesis", "Satoshi", 1000})
 	var blocks []Block
 	blocks = append(blocks, newB)
-	return Chain{chain: blocks}
+	return Chain{chain: blocks, chainID: chainID}
 }
 
 // func loadToStruct(path string) (error) {
@@ -134,7 +135,7 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-	GenesisChain := newChain()
+	GenesisChain := newChain("Main Chain")
 	fmt.Println(GenesisChain.chain[0].PrevHash)
 
 	// newT := Transaction{From:"Sahil", To:"John", Value: 10000}

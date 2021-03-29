@@ -13,10 +13,9 @@ import (
 type Account string
 
 type Transaction struct {
-	From 	Account `json: "from"`
-	To 		Account `json: "to"`
-	Value 	uint 	`json: "value`
-	// Data 	string 	`json: "data"`
+	From 	Account 
+	To 		Account
+	Value 	uint
 }
 
 type Block struct {
@@ -80,7 +79,7 @@ func loadToMap(path string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	fmt.Sprintf("Found %s", path)
+	fmt.Printf("Found %s", path)
 
 	bVal, _ := ioutil.ReadAll(jsonFile)
 	var result map[string]interface{}

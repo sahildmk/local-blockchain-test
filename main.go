@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Account string
@@ -21,11 +22,30 @@ type Transaction struct {
 type Block struct {
 	PrevHash string
 	T Transaction
+	TimeStamp string
+}
+
+func createBlock(prevHash string, t Transaction) (Block) {
+	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String()}
 }
 
 type State struct {
 	Balances map[Account]uint
 	dbFile *os.File
+}
+
+type Chain struct {
+	chain []Block
+}
+
+func newChain() (Chain) {
+	token := []byte(time.Now().String())
+	hS := sha256.Sum256(token)
+	hash := fmt.Sprintf("%x", hS[:])
+	newB := createBlock(hash, Transaction{"Genesis", "Satoshi", 1000})
+	var blocks []Block
+	blocks = append(blocks, newB)
+	return Chain{chain: blocks}
 }
 
 // func loadToStruct(path string) (error) {
@@ -114,9 +134,12 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-	newT := Transaction{From:"Sahil", To:"John", Value: 10000}
-	newB := Block{PrevHash: "0", T: newT}
+	GenesisChain := newChain()
+	fmt.Println(GenesisChain.chain[0].PrevHash)
 
-	newH := hashBlock(newB)
-	fmt.Println(newH)
+	// newT := Transaction{From:"Sahil", To:"John", Value: 10000}
+	// newB := createBlock("0", newT)
+
+	// newH := hashBlock(newB)
+	// fmt.Println(newH)
 }

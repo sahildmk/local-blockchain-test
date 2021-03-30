@@ -21,16 +21,20 @@ type Transaction struct {
 }
 
 type Wallet struct {
-	KeyPair *rsa.PrivateKey
+	privateKey *rsa.PrivateKey
+	publicKey rsa.PublicKey
 }
 
-func NewWallet() *Wallet {
-	w := new(Wallet)
-	keyPair, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		w.KeyPair = keyPair
-	}
-	return w
+func NewWallet() (Wallet, error) {
+	reader := rand.Reader
+	bitSize := 2048
+
+	key, err := rsa.GenerateKey(reader, bitSize)
+	checkError(err)
+
+	publicKey := key.PublicKey
+
+	return Wallet{privateKey: key, publicKey: publicKey}, nil
 }
 
 type Block struct {
@@ -60,7 +64,7 @@ func (c Chain) getLastBlock() (Block) {
 // sPK => Senders Public Key
 // sig => Signature
 func (c Chain) addBlock(t Transaction, sPK string, sig string) {
-	
+
 }
 
 func newChain(chainID string) (Chain) {
@@ -128,6 +132,13 @@ func stateFromDisk() (*State, error) {
 	return nil, nil
 }
 
+func checkError(err error) {
+	if err != nil {
+		fmt.Println("Fatal error ", err.Error())
+		os.Exit(1)
+	}
+}
+
 func main() {
 	// cwd, err := os.Getwd()
 	// if err != nil {
@@ -148,9 +159,20 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-	GenesisChain := newChain("Main Chain")
-	fmt.Println(GenesisChain.chain[0].PrevHash)
-	fmt.Println(GenesisChain.chain[0].blockHash())
+	// GenesisChain := newChain("Main Chain")
+	// fmt.Println(GenesisChain.chain[0].PrevHash)
+
+	w, err := NewWallet()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	testVar := "Hey hows it going"
+
+	enc, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, &w.publicKey, []byte(testVar), nil)
+	dec, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, w.privateKey, enc, nil)
+
+	fmt.Println(string(dec))
 
 	// newT := Transaction{From:"Sahil", To:"John", Value: 10000}
 	// newB := createBlock("0", newT)

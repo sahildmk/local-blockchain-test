@@ -39,12 +39,8 @@ type Block struct {
 	TimeStamp string
 }
 
-func NewBlock(prevHash string, t Transaction) *Block {
-	b := new(Block)
-	b.PrevHash = prevHash
-	b.T = t
-	b.TimeStamp = time.Now().String() 
-	return b
+func NewBlock(prevHash string, t Transaction) (Block) {
+	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String()}
 }
 
 type State struct {
@@ -63,13 +59,15 @@ func (c Chain) getLastBlock() (Block) {
 
 // sPK => Senders Public Key
 // sig => Signature
-func (c Chain) addBlock(t Transaction, sPK string, sig string)
+func (c Chain) addBlock(t Transaction, sPK string, sig string) {
+	
+}
 
 func newChain(chainID string) (Chain) {
 	token := []byte(time.Now().String())
 	hS := sha256.Sum256(token)
 	hash := fmt.Sprintf("%x", hS[:])
-	newB := Block(hash, Transaction{"Genesis", "Satoshi", 1000})
+	newB := NewBlock(hash, Transaction{"Genesis", "Satoshi", 1000})
 	var blocks []Block
 	blocks = append(blocks, newB)
 	return Chain{chain: blocks, chainID: chainID}

@@ -1,69 +1,18 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 type Account string
 
-type Transaction struct {
-	From 	Account 
-	To 		Account
-	Value 	uint
-}
-
-type Block struct {
-	PrevHash string
-	T Transaction
-	TimeStamp string
-}
-
-func createBlock(prevHash string, t Transaction) (Block) {
-	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String()}
-}
-
 type State struct {
 	Balances map[Account]uint
 	dbFile *os.File
-}
-
-type Chain struct {
-	chain []Block
-	chainID string
-}
-
-func newChain(chainID string) (Chain) {
-	token := []byte(time.Now().String())
-	hS := sha256.Sum256(token)
-	hash := fmt.Sprintf("%x", hS[:])
-	newB := createBlock(hash, Transaction{"Genesis", "Satoshi", 1000})
-	var blocks []Block
-	blocks = append(blocks, newB)
-	return Chain{chain: blocks, chainID: chainID}
-}
-
-// func loadToStruct(path string) (error) {
-// 	jsonFile, err := os.Open("data/genesis.json")
-
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-
-// 	bVal, _ := ioutil.ReadAll(jsonFile)
-
-// } 
-
-func hashBlock(b Block) (string) {
-	s := fmt.Sprintf("%v", b)
-	hS := sha256.Sum256([]byte(s))
-	hash := fmt.Sprintf("%x", hS[:])
-	return hash
 }
 
 func transactionToString(t Transaction) (string, error) {
@@ -136,10 +85,11 @@ func main() {
 
 	GenesisChain := newChain("Main Chain")
 	fmt.Println(GenesisChain.chain[0].PrevHash)
+	fmt.Println(GenesisChain.chain[0].blockHash())
 
 	// newT := Transaction{From:"Sahil", To:"John", Value: 10000}
 	// newB := createBlock("0", newT)
 
-	// newH := hashBlock(newB)
+	// newH := blockHash(newB)
 	// fmt.Println(newH)
 }

@@ -41,3 +41,7 @@ func TestSigning(t *testing.T) {
 		fmt.Println("> Transaction has been verified")
 	}
 }
+
+func TestSendMoney(t *testing.T) {
+	
+}

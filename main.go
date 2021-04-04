@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -14,12 +15,33 @@ import (
 
 type Account string
 
+var mainChain = newChain("Genesis Chain")
+
+// =============== Helper Functions =============== //
+
+// =============== Transaction Functions =============== //
 type Transaction struct {
-	From 	Account 
-	To 		Account
+	From 	rsa.PublicKey 
+	To 		rsa.PublicKey
 	Value 	uint
 }
 
+func (t Transaction) transHash() (string) {
+	s := fmt.Sprintf("%v", t)
+	hS := sha256.Sum256([]byte(s))
+	hash := fmt.Sprintf("%x", hS[:])
+	return hash
+}
+
+func (t Transaction) transToString() (string) {
+	out, err := json.Marshal(t)
+	if err != nil {
+		panic(err)
+	}
+	return string(out)
+}
+
+// =============== Wallet Functions =============== //
 type Wallet struct {
 	privateKey *rsa.PrivateKey
 	publicKey rsa.PublicKey
@@ -37,7 +59,23 @@ func NewWallet() (Wallet, error) {
 	return Wallet{privateKey: key, publicKey: publicKey}, nil
 }
 
+func (w Wallet) sendMoney(amount uint, targetPK rsa.PublicKey) () {
+	newT := Transaction{From: w.publicKey, To: targetPK, Value: amount}
+	hashed := sha256.Sum256([]byte(newT.transToString()))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, w.privateKey, crypto.SHA256, hashed[:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from signing: %s\n", err)
+		return
+	}
+
+	mainChain.addBlock(newT, w.publicKey, sig)
+
+	return
+}
+
+// =============== Block Functions =============== //
 type Block struct {
+
 	PrevHash string
 	T Transaction
 	TimeStamp string
@@ -47,14 +85,41 @@ func NewBlock(prevHash string, t Transaction) (Block) {
 	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String()}
 }
 
-type State struct {
-	Balances map[Account]uint
-	dbFile *os.File
+func (b Block) blockHash() (string) {
+	s := fmt.Sprintf("%v", b)
+	hS := sha256.Sum256([]byte(s))
+	hash := fmt.Sprintf("%x", hS[:])
+	return hash
 }
 
+// =============== Chain Functions =============== //
 type Chain struct {
 	chain []Block
 	chainID string
+}
+
+func newChain(chainID string) (Chain) {
+	token := []byte(time.Now().String())
+	hS := sha256.Sum256(token)
+	hash := fmt.Sprintf("%x", hS[:])
+
+	genesis, gErr := NewWallet()
+	satoshi, sErr := NewWallet()
+
+	if gErr != nil {
+		panic(gErr)
+	} else if sErr != nil {
+		panic(sErr)
+	}
+
+	newB := NewBlock(hash, Transaction{genesis.publicKey, satoshi.publicKey, 1000})
+	var blocks []Block
+	blocks = append(blocks, newB)
+	return Chain{chain: blocks, chainID: chainID}
+}
+type State struct {
+	Balances map[Account]uint
+	dbFile *os.File
 }
 
 func (c Chain) getLastBlock() (Block) {
@@ -63,31 +128,21 @@ func (c Chain) getLastBlock() (Block) {
 
 // sPK => Senders Public Key
 // sig => Signature
-func (c Chain) addBlock(t Transaction, sPK string, sig string) {
-
+func (c Chain) addBlock(t Transaction, sPK rsa.PublicKey, sig []byte) {
+	hashed := sha256.Sum256([]byte(t.transToString()))
+	err := rsa.VerifyPKCS1v15(&sPK, crypto.SHA256, hashed[:], sig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from verification: %s\n", err)
+    	return
+	} else {
+		fmt.Println("> Transaction has been verified")
+		newB := NewBlock(c.getLastBlock().PrevHash, t)
+		c.chain = append(c.chain, newB)
+	}
 }
 
-func newChain(chainID string) (Chain) {
-	token := []byte(time.Now().String())
-	hS := sha256.Sum256(token)
-	hash := fmt.Sprintf("%x", hS[:])
-	newB := NewBlock(hash, Transaction{"Genesis", "Satoshi", 1000})
-	var blocks []Block
-	blocks = append(blocks, newB)
-	return Chain{chain: blocks, chainID: chainID}
-}
 
-func (b Block) blockHash() (string) {
-	s := fmt.Sprintf("%v", b)
-	hS := sha256.Sum256([]byte(s))
-	hash := fmt.Sprintf("%x", hS[:])
-	return hash
-}
-
-func transactionToString(t Transaction) (string, error) {
-
-	return "hi", nil
-}
+// =============== Other Functions =============== //
 
 func loadToMap(path string) (map[string]interface{}, error) {
 	jsonFile, err := os.Open(path)
@@ -162,19 +217,6 @@ func main() {
 	// GenesisChain := newChain("Main Chain")
 	// fmt.Println(GenesisChain.chain[0].PrevHash)
 
-	w, err := NewWallet()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	testVar := "Hey hows it going"
-
-	enc, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, &w.publicKey, []byte(testVar), nil)
-	dec, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, w.privateKey, enc, nil)
-
-	fmt.Println(string(dec))
-
-	// newT := Transaction{From:"Sahil", To:"John", Value: 10000}
 	// newB := createBlock("0", newT)
 
 	// newH := blockHash(newB)

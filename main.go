@@ -2,14 +2,17 @@ package main
 
 import (
 	"crypto"
+	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	mrand "math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -75,14 +78,15 @@ func (w Wallet) sendMoney(amount uint, targetPK rsa.PublicKey) () {
 
 // =============== Block Functions =============== //
 type Block struct {
-
+	nonce int
 	PrevHash string
 	T Transaction
 	TimeStamp string
 }
 
 func NewBlock(prevHash string, t Transaction) (Block) {
-	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String()}
+	n := int(mrand.Float64()*999999999)
+	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String(), nonce: n}
 }
 
 func (b Block) blockHash() (string) {
@@ -96,6 +100,19 @@ func (b Block) blockHash() (string) {
 type Chain struct {
 	chain []Block
 	chainID string
+}
+
+func (c Chain) mine(nonce int) (int) {
+	for sol := 0; true; sol++ {
+		bs := []byte(strconv.Itoa(nonce + sol))
+		hash := md5.Sum(bs)
+		sHash := fmt.Sprintf("%x", hash)
+		if (sHash[0:4] == "0000") {
+			fmt.Println("Solved: ", sol)
+			return sol
+		}
+	}
+	return -1
 }
 
 func newChain(chainID string) (Chain) {
@@ -195,6 +212,7 @@ func checkError(err error) {
 }
 
 func main() {
+	mrand.Seed(time.Now().UnixNano())
 	// cwd, err := os.Getwd()
 	// if err != nil {
 	// 	fmt.Println(err)
@@ -221,4 +239,5 @@ func main() {
 
 	// newH := blockHash(newB)
 	// fmt.Println(newH)
+	// fmt.Println(fmt.Sprintf("%.9f", mrand.Float64()))
 }

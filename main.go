@@ -19,6 +19,7 @@ import (
 type Account string
 
 var mainChain = newChain("Genesis Chain")
+const TXPBLOCK = 5
 
 // =============== Helper Functions =============== //
 
@@ -46,6 +47,7 @@ func (t Transaction) transToString() (string) {
 
 // =============== Wallet Functions =============== //
 type Wallet struct {
+
 	privateKey *rsa.PrivateKey
 	publicKey rsa.PublicKey
 }
@@ -71,7 +73,7 @@ func (w Wallet) sendMoney(amount uint, targetPK rsa.PublicKey) () {
 		return
 	}
 
-	mainChain.addBlock(newT, w.publicKey, sig)
+	mainChain.newTrans(newT, w.publicKey, sig)
 
 	return
 }
@@ -80,13 +82,15 @@ func (w Wallet) sendMoney(amount uint, targetPK rsa.PublicKey) () {
 type Block struct {
 	nonce int
 	PrevHash string
-	T Transaction
+	transList []Transaction
 	TimeStamp string
 }
 
 func NewBlock(prevHash string, t Transaction) (Block) {
 	n := int(mrand.Float64()*999999999)
-	return Block{PrevHash: prevHash, T: t, TimeStamp: time.Now().String(), nonce: n}
+	var tList []Transaction
+	tList = append(tList, t)
+	return Block{PrevHash: prevHash, transList: tList, TimeStamp: time.Now().String(), nonce: n}
 }
 
 func (b Block) blockHash() (string) {
@@ -94,6 +98,16 @@ func (b Block) blockHash() (string) {
 	hS := sha256.Sum256([]byte(s))
 	hash := fmt.Sprintf("%x", hS[:])
 	return hash
+}
+
+func (b Block) addTx(t Transaction) (Block) {
+	fmt.Println("> Adding transaction", len(b.transList))
+	b.transList = append(b.transList, t)
+	return b
+}
+
+func (b Block) getTLen() (int) {
+	return len(b.transList)
 }
 
 // =============== Chain Functions =============== //
@@ -136,6 +150,7 @@ func newChain(chainID string) (Chain) {
 }
 type State struct {
 	Balances map[Account]uint
+	transactions []Transaction
 	dbFile *os.File
 }
 
@@ -145,7 +160,7 @@ func (c Chain) getLastBlock() (Block) {
 
 // sPK => Senders Public Key
 // sig => Signature
-func (c Chain) addBlock(t Transaction, sPK rsa.PublicKey, sig []byte) {
+func (c Chain) newTrans(t Transaction, sPK rsa.PublicKey, sig []byte) () {
 	hashed := sha256.Sum256([]byte(t.transToString()))
 	err := rsa.VerifyPKCS1v15(&sPK, crypto.SHA256, hashed[:], sig)
 	if err != nil {
@@ -153,8 +168,12 @@ func (c Chain) addBlock(t Transaction, sPK rsa.PublicKey, sig []byte) {
     	return
 	} else {
 		fmt.Println("> Transaction has been verified")
-		newB := NewBlock(c.getLastBlock().PrevHash, t)
-		c.chain = append(c.chain, newB)
+		if c.getLastBlock().getTLen() >= TXPBLOCK {
+			c.chain[len(c.chain) - 1] = c.getLastBlock().addTx(t)
+		} else {
+			newB := NewBlock(c.getLastBlock().PrevHash, t)
+			c.chain = append(c.chain, newB)
+		}
 	}
 }
 
@@ -232,8 +251,26 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-	// GenesisChain := newChain("Main Chain")
-	// fmt.Println(GenesisChain.chain[0].PrevHash)
+	GenesisChain := newChain("Main Chain")
+	fmt.Println(GenesisChain.chain[0].PrevHash)
+
+	w1, err := NewWallet()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("> Wallet 1 Created!")
+	
+	fmt.Println("> Creating Wallet 2")
+	w2, err := NewWallet()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("> Wallet 2 Created!")
+
+	w1.sendMoney(1000, w2.publicKey)
+	w2.sendMoney(1000, w1.publicKey)
+
+	fmt.Println(GenesisChain.getLastBlock().getTLen())
 
 	// newB := createBlock("0", newT)
 

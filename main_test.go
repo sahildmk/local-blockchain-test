@@ -11,14 +11,14 @@ import (
 
 func TestSigning(t *testing.T) {
 	fmt.Println("> Creating Wallet 1")
-	w1, err := NewWallet()
+	w1, err := NewWallet("w1")
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("> Wallet 1 Created!")
 	
 	fmt.Println("> Creating Wallet 2")
-	w2, err := NewWallet()
+	w2, err := NewWallet("w2")
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -17,12 +17,29 @@ import (
 	"time"
 )
 
-type Account string
-
 var mainChain = newChain("Genesis Chain")
 const TXPBLOCK = 5
+var aliasToPKMap = make(map[string]rsa.PublicKey)
+var PKToAliasMap = make(map[rsa.PublicKey]string)
 
 // =============== Helper Functions =============== //
+func printChain() () {
+	fmt.Printf("Chain Length: %d\n", len(mainChain.chain))
+
+	for i := 0; i < len(mainChain.chain); i++ {
+		var b Block = mainChain.chain[i]
+		fmt.Printf("> BLOCK %d\n", i)
+		fmt.Printf("Length of Block: %d\n", b.getTLen())
+		fmt.Println("Transactions in Block")
+		fmt.Println("TO		FROM 		VALUE")
+		for j := 0; j < len(b.transList); j++ {
+			var t Transaction = b.transList[j]
+			fmt.Printf("%s		%s		%d\n", PKToAliasMap[t.To], PKToAliasMap[t.From], t.Value)
+		}
+		fmt.Println()
+	}
+}
+
 
 // =============== Transaction Functions =============== //
 type Transaction struct {
@@ -48,12 +65,16 @@ func (t Transaction) transToString() (string) {
 
 // =============== Wallet Functions =============== //
 type Wallet struct {
-
 	privateKey *rsa.PrivateKey
 	publicKey rsa.PublicKey
 }
 
-func NewWallet() (Wallet, error) {
+func NewWallet(name string) (Wallet, error) {
+
+	if _, exists := aliasToPKMap[name]; exists {
+		return Wallet{}, errors.New("User already exists")
+	}
+
 	reader := rand.Reader
 	bitSize := 2048
 
@@ -62,22 +83,33 @@ func NewWallet() (Wallet, error) {
 
 	publicKey := key.PublicKey
 
+	aliasToPKMap[name] = publicKey
+	PKToAliasMap[publicKey] = name
+
 	return Wallet{privateKey: key, publicKey: publicKey}, nil
 }
 
-func (w Wallet) sendMoney(amount uint, targetPK rsa.PublicKey) () {
+func (w Wallet) sendMoney(amount uint, target string) (error) {
 	// fmt.Println("> Sending Money")
+	var targetPK rsa.PublicKey
+
+	if pk, exists := aliasToPKMap[target]; exists {
+		targetPK = pk
+	} else {
+		return errors.New("> Target does not have a wallet!")
+	}
+
 	newT := Transaction{From: w.publicKey, To: targetPK, Value: amount}
 	hashed := sha256.Sum256([]byte(newT.transToString()))
 	sig, err := rsa.SignPKCS1v15(rand.Reader, w.privateKey, crypto.SHA256, hashed[:])
 	if err != nil {
 		fmt.Println("========== Error from signing: ", err)
-		return
+		return errors.New("> Signing error")
 	}
 
 	mainChain.newTrans(newT, w.publicKey, sig)
 
-	return
+	return nil
 }
 
 // =============== Block Functions =============== //
@@ -139,8 +171,8 @@ func newChain(chainID string) (Chain) {
 	hS := sha256.Sum256(token)
 	hash := fmt.Sprintf("%x", hS[:])
 
-	genesis, gErr := NewWallet()
-	satoshi, sErr := NewWallet()
+	genesis, gErr := NewWallet("Genesis")
+	satoshi, sErr := NewWallet("Satoshi")
 
 	if gErr != nil {
 		panic(gErr)
@@ -158,7 +190,7 @@ func newChain(chainID string) (Chain) {
 	return Chain{chain: blocks, chainID: chainID}
 }
 type State struct {
-	Balances map[Account]uint
+	Balances map[string]uint
 	transactions []Transaction
 	dbFile *os.File
 }
@@ -242,47 +274,45 @@ func checkError(err error) {
 
 func main() {
 	mrand.Seed(time.Now().UnixNano())
-	// cwd, err := os.Getwd()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
 
-	// dbFilePath := filepath.Join(cwd, "data", "genesis.json")
-	// // Load genesis database
-	
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+	for {
+		var input string
+		fmt.Printf("> ")
+		fmt.Scanln(&input)		
+		
+		switch input {
+		case "q":
+			fmt.Println("Goodbye!")
+			os.Exit(0)
+		default:
+			fmt.Println("Unknown command. Type 'h' for a list of commands.")
+		}
 
-	// var genFile map[string]interface{}
-	// genFile, err = loadToMap(dbFilePath)
+	}
 
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	w1, err := NewWallet()
+	w1, err := NewWallet("sahil")
 	if err != nil {
 		fmt.Println(err)
 	}
 	// fmt.Println("> Wallet 1 Created!")
 	
 	// fmt.Println("> Creating Wallet 2")
-	w2, err := NewWallet()
+	w2, err := NewWallet("john")
 	if err != nil {
 		fmt.Println(err)
 	}
 	// fmt.Println("> Wallet 2 Created!")
 
-	for i := 0; i < 12; i++ {
-		w1.sendMoney(1000, w2.publicKey)
+	for i := 0; i < 6; i++ {
+		w1.sendMoney(1000, "john")
 	}
 
-	fmt.Printf("Chain Length: %d\n", len(mainChain.chain))
-
-	for i := 0; i < len(mainChain.chain); i++ {
-		fmt.Printf("Length of Block %d: %d\n", i, mainChain.chain[i].getTLen())
+	for i := 0; i < 6; i++ {
+		w2.sendMoney(1000, "sahil")
 	}
 
+	
+	printChain()
 	
 
 	// newB := createBlock("0", newT)

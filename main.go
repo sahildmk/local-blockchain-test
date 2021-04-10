@@ -284,6 +284,19 @@ func main() {
 		case "q":
 			fmt.Println("Goodbye!")
 			os.Exit(0)
+		case "h":
+			fmt.Println(
+				"List of Commands\n",
+				"h - Help\n",
+				"q - Quit\n",
+				"new [username] - Creates a new wallet\n",
+				"send [username] [value] - Send money to a user\n",
+				"bal [username] - Shows a users balance\n",
+				"block - Prints the transactions of the current block\n",
+				"chain - Prints the entire chain",
+			)
+		case "new":
+			
 		default:
 			fmt.Println("Unknown command. Type 'h' for a list of commands.")
 		}

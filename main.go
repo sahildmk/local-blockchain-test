@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto"
 	"crypto/md5"
 	"crypto/rand"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,6 +23,7 @@ var mainChain = newChain("Genesis Chain")
 const TXPBLOCK = 5
 var aliasToPKMap = make(map[string]rsa.PublicKey)
 var PKToAliasMap = make(map[rsa.PublicKey]string)
+var aliasToWallet = make(map[string]Wallet)
 
 // =============== Helper Functions =============== //
 func printChain() () {
@@ -276,11 +279,14 @@ func main() {
 	mrand.Seed(time.Now().UnixNano())
 
 	for {
-		var input string
-		fmt.Printf("> ")
-		fmt.Scanln(&input)		
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("> ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSuffix(input, "\n")
+
+		splitInput := strings.Split(input, " ")	
 		
-		switch input {
+		switch splitInput[0] {
 		case "q":
 			fmt.Println("Goodbye!")
 			os.Exit(0)
@@ -296,7 +302,13 @@ func main() {
 				"chain - Prints the entire chain",
 			)
 		case "new":
-			
+			name := splitInput[1]
+			w, err := NewWallet(name)
+			if err != nil {
+				fmt.Println(err)
+			}
+			aliasToWallet[name] = w
+			fmt.Printf("New wallet created for %s!\n", name)
 		default:
 			fmt.Println("Unknown command. Type 'h' for a list of commands.")
 		}

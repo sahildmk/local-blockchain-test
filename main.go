@@ -10,10 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	mrand "math/rand"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +22,7 @@ const TXPBLOCK = 5
 var aliasToPKMap = make(map[string]rsa.PublicKey)
 var PKToAliasMap = make(map[rsa.PublicKey]string)
 var aliasToWallet = make(map[string]Wallet)
+var users = []string{}
 
 // =============== Helper Functions =============== //
 func printChain() () {
@@ -37,18 +36,41 @@ func printChain() () {
 		fmt.Println("TO		FROM 		VALUE")
 		for j := 0; j < len(b.transList); j++ {
 			var t Transaction = b.transList[j]
-			fmt.Printf("%s		%s		%d\n", PKToAliasMap[t.To], PKToAliasMap[t.From], t.Value)
+			fmt.Printf("%s		%s		%.2f\n", PKToAliasMap[t.To], PKToAliasMap[t.From], t.Value)
 		}
 		fmt.Println()
 	}
 }
 
+func printBal(user string) () {
+	if w, exists := aliasToWallet[user]; exists {
+		fmt.Printf("%s's Balance: %.2f\n", user, w.balance)
+	} else {
+		fmt.Println("User does not exist!")
+	}
+}
+
+func printUsers() () {
+	fmt.Println("Current Users")
+	for i := 0; i < len(users); i++ {
+		fmt.Printf("- %s\n", users[i])
+	}
+}
+
+func userExists(user string) (bool) {
+	for i := 0; i < len(users); i++ {
+		if users[i] == user {
+			return true
+		}
+	}
+	return false
+}
 
 // =============== Transaction Functions =============== //
 type Transaction struct {
 	From 	rsa.PublicKey 
 	To 		rsa.PublicKey
-	Value 	uint
+	Value 	float32
 }
 
 func (t Transaction) transHash() (string) {
@@ -68,15 +90,18 @@ func (t Transaction) transToString() (string) {
 
 // =============== Wallet Functions =============== //
 type Wallet struct {
+	balance float32
 	privateKey *rsa.PrivateKey
 	publicKey rsa.PublicKey
 }
 
-func NewWallet(name string) (Wallet, error) {
+func NewWallet(name string) (error) {
 
 	if _, exists := aliasToPKMap[name]; exists {
-		return Wallet{}, errors.New("User already exists")
+		return errors.New("user already exists")
 	}
+
+	users = append(users, name)
 
 	reader := rand.Reader
 	bitSize := 2048
@@ -89,17 +114,25 @@ func NewWallet(name string) (Wallet, error) {
 	aliasToPKMap[name] = publicKey
 	PKToAliasMap[publicKey] = name
 
-	return Wallet{privateKey: key, publicKey: publicKey}, nil
+	w := Wallet{privateKey: key, publicKey: publicKey, balance: 1000}
+	aliasToWallet[name] = w
+
+	return nil
 }
 
-func (w Wallet) sendMoney(amount uint, target string) (error) {
+func (w Wallet) sendMoney(amount float32, target string) (error) {
 	// fmt.Println("> Sending Money")
+
+	if (amount > w.balance) {
+		return errors.New("insufficient funds")
+	}
+
 	var targetPK rsa.PublicKey
 
 	if pk, exists := aliasToPKMap[target]; exists {
 		targetPK = pk
 	} else {
-		return errors.New("> Target does not have a wallet!")
+		return errors.New("> Target does not have a wallet")
 	}
 
 	newT := Transaction{From: w.publicKey, To: targetPK, Value: amount}
@@ -107,7 +140,7 @@ func (w Wallet) sendMoney(amount uint, target string) (error) {
 	sig, err := rsa.SignPKCS1v15(rand.Reader, w.privateKey, crypto.SHA256, hashed[:])
 	if err != nil {
 		fmt.Println("========== Error from signing: ", err)
-		return errors.New("> Signing error")
+		return errors.New("signing error")
 	}
 
 	mainChain.newTrans(newT, w.publicKey, sig)
@@ -141,6 +174,16 @@ func (b Block) addTx(t Transaction) (Block, error) {
 	if b.getTLen() < TXPBLOCK {
 		// fmt.Println("> Adding transaction", len(b.transList))
 		b.transList = append(b.transList, t)
+
+		from := aliasToWallet[PKToAliasMap[t.From]]
+		to := aliasToWallet[PKToAliasMap[t.To]]
+
+		from.balance -= t.Value
+		to.balance += t.Value
+
+		aliasToWallet[PKToAliasMap[t.From]] = from
+		aliasToWallet[PKToAliasMap[t.To]] = to
+
 		return b, nil
 	}
 	return b, errors.New("Block full")
@@ -174,8 +217,11 @@ func newChain(chainID string) (Chain) {
 	hS := sha256.Sum256(token)
 	hash := fmt.Sprintf("%x", hS[:])
 
-	genesis, gErr := NewWallet("Genesis")
-	satoshi, sErr := NewWallet("Satoshi")
+	gErr := NewWallet("Genesis")
+	sErr := NewWallet("Satoshi")
+
+	genesis := aliasToWallet["Genesis"]
+	satoshi := aliasToWallet["Satoshi"]
 
 	if gErr != nil {
 		panic(gErr)
@@ -184,6 +230,7 @@ func newChain(chainID string) (Chain) {
 	}
 
 	newB := NewBlock(hash)
+	genesis.balance = 1000000
 	newB, err := newB.addTx(Transaction{genesis.publicKey, satoshi.publicKey, 1000})
 	if err != nil {
 		panic(err)
@@ -191,11 +238,6 @@ func newChain(chainID string) (Chain) {
 	var blocks []Block
 	blocks = append(blocks, newB)
 	return Chain{chain: blocks, chainID: chainID}
-}
-type State struct {
-	Balances map[string]uint
-	transactions []Transaction
-	dbFile *os.File
 }
 
 func (c Chain) getLastBlock() (Block) {
@@ -216,56 +258,10 @@ func (c *Chain) newTrans(t Transaction, sPK rsa.PublicKey, sig []byte) () {
 		c.chain[len(c.chain) - 1], err = c.getLastBlock().addTx(t)
 		if err != nil {
 			newB := NewBlock(c.getLastBlock().blockHash())
-			newB, err = newB.addTx(t)
+			newB.addTx(t)
 			c.chain = append(c.chain, newB)
 		}
 	}
-}
-
-
-// =============== Other Functions =============== //
-
-func loadToMap(path string) (map[string]interface{}, error) {
-	jsonFile, err := os.Open(path)
-
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-
-	fmt.Printf("Found %s", path)
-
-	bVal, _ := ioutil.ReadAll(jsonFile)
-	var result map[string]interface{}
-    json.Unmarshal([]byte(bVal), &result)
-
-	return result, nil
-}
-
-func stateFromDisk() (*State, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	dbFilePath := filepath.Join(cwd, "data", "genesis.json")
-	// Load genesis database
-	
-	if err != nil {
-		return nil, err
-	}
-
-	var genFile map[string]interface{}
-	genFile, err = loadToMap(dbFilePath)
-
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-
-	fmt.Println(genFile["gen_date"])
-
-	return nil, nil
 }
 
 func checkError(err error) {
@@ -279,70 +275,72 @@ func main() {
 	mrand.Seed(time.Now().UnixNano())
 
 	for {
-		reader := bufio.NewReader(os.Stdin)
+		scanner := bufio.NewScanner(os.Stdin)
 		fmt.Print("> ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSuffix(input, "\n")
+		scanner.Scan()
+		input := scanner.Text()
 
 		splitInput := strings.Split(input, " ")	
-		
+
 		switch splitInput[0] {
 		case "q":
-			fmt.Println("Goodbye!")
-			os.Exit(0)
+			fmt.Print("Data is not persistent, are you sure you want to exit? (Y/N) ")
+			scanner.Scan()
+			input := scanner.Text()
+			if (input == "Y") {
+				fmt.Println("Goodbye!")
+				os.Exit(0)
+			}
 		case "h":
 			fmt.Println(
 				"List of Commands\n",
 				"h - Help\n",
 				"q - Quit\n",
 				"new [username] - Creates a new wallet\n",
-				"send [username] [value] - Send money to a user\n",
+				"send [fromUser] [toUser] [value] - Send money to a user\n",
 				"bal [username] - Shows a users balance\n",
+				"users - Prints a list of all current users\n",
 				"block - Prints the transactions of the current block\n",
 				"chain - Prints the entire chain",
 			)
 		case "new":
 			name := splitInput[1]
-			w, err := NewWallet(name)
+			err := NewWallet(name)
 			if err != nil {
 				fmt.Println(err)
 			}
-			aliasToWallet[name] = w
 			fmt.Printf("New wallet created for %s!\n", name)
+		case "chain":
+			printChain()
+		case "bal":
+			printBal(splitInput[1])
+		case "users":
+			printUsers()
+		case "send":
+			fromUser := splitInput[1]
+			toUser := splitInput[2]
+			value, err := strconv.ParseFloat(splitInput[3], 32)
+			if (err != nil) {
+				panic(err)
+			}
+			if userExists(fromUser) {
+				if userExists(toUser) {
+					fromWallet := aliasToWallet[fromUser]
+					err := fromWallet.sendMoney(float32(value), toUser)
+					if (err == nil) {
+						fmt.Printf("Sent %.2f from %s to %s\n", value, fromUser, toUser)
+					} else {
+						fmt.Println(err)
+					}
+				} else {
+					fmt.Printf("User %s does not exist\n", toUser)
+				}
+			} else {
+				fmt.Printf("User %s does not exist\n", fromUser)
+			}
 		default:
 			fmt.Println("Unknown command. Type 'h' for a list of commands.")
 		}
 
 	}
-
-	w1, err := NewWallet("sahil")
-	if err != nil {
-		fmt.Println(err)
-	}
-	// fmt.Println("> Wallet 1 Created!")
-	
-	// fmt.Println("> Creating Wallet 2")
-	w2, err := NewWallet("john")
-	if err != nil {
-		fmt.Println(err)
-	}
-	// fmt.Println("> Wallet 2 Created!")
-
-	for i := 0; i < 6; i++ {
-		w1.sendMoney(1000, "john")
-	}
-
-	for i := 0; i < 6; i++ {
-		w2.sendMoney(1000, "sahil")
-	}
-
-	
-	printChain()
-	
-
-	// newB := createBlock("0", newT)
-
-	// newH := blockHash(newB)
-	// fmt.Println(newH)
-	// fmt.Println(fmt.Sprintf("%.9f", mrand.Float64()))
 }

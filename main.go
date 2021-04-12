@@ -274,6 +274,18 @@ func checkError(err error) {
 func main() {
 	mrand.Seed(time.Now().UnixNano())
 
+	fmt.Println(
+		"List of Commands\n",
+		"h - Help\n",
+		"q - Quit\n",
+		"new [username] - Creates a new wallet\n",
+		"send [fromUser] [toUser] [value] - Send money to a user\n",
+		"bal [username] - Shows a users balance\n",
+		"users - Prints a list of all current users\n",
+		"block - Prints the transactions of the current block\n",
+		"chain - Prints the entire chain",
+	)
+
 	for {
 		scanner := bufio.NewScanner(os.Stdin)
 		fmt.Print("> ")
@@ -287,7 +299,7 @@ func main() {
 			fmt.Print("Data is not persistent, are you sure you want to exit? (Y/N) ")
 			scanner.Scan()
 			input := scanner.Text()
-			if (input == "Y") {
+			if input == "Y" || input == "y" {
 				fmt.Println("Goodbye!")
 				os.Exit(0)
 			}

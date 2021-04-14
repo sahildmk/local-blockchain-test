@@ -231,8 +231,8 @@ func newChain(chainID string) (Chain) {
 	gErr := NewWallet("user1")
 	sErr := NewWallet("user2")
 
-	genesis := aliasToWallet["Genesis"]
-	satoshi := aliasToWallet["Satoshi"]
+	genesis := aliasToWallet["user1"]
+	satoshi := aliasToWallet["user2"]
 
 	if gErr != nil {
 		panic(gErr)
@@ -242,7 +242,7 @@ func newChain(chainID string) (Chain) {
 
 	newB := NewBlock(hash)
 	genesis.balance = 1000000
-	aliasToWallet["Genesis"] = genesis
+	aliasToWallet["user1"] = genesis
 	newB, err := newB.addTx(Transaction{genesis.publicKey, satoshi.publicKey, 1000})
 	if err != nil {
 		panic(err)

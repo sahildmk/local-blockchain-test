@@ -228,8 +228,8 @@ func newChain(chainID string) (Chain) {
 	hS := sha256.Sum256(token)
 	hash := fmt.Sprintf("%x", hS[:])
 
-	gErr := NewWallet("Genesis")
-	sErr := NewWallet("Satoshi")
+	gErr := NewWallet("user1")
+	sErr := NewWallet("user2")
 
 	genesis := aliasToWallet["Genesis"]
 	satoshi := aliasToWallet["Satoshi"]

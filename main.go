@@ -57,6 +57,17 @@ func printUsers() () {
 	}
 }
 
+func printBlock() () {
+	b := mainChain.getLastBlock()
+	fmt.Printf("> BLOCK %d\n", len(mainChain.chain))
+	fmt.Printf("Length of Block: %d\n", b.getTLen())
+	fmt.Println("TO		FROM 		VALUE")
+	for i := 0; i < len(b.transList); i++ {
+		t := b.transList[i]
+		fmt.Printf("%s		%s		%.2f\n", PKToAliasMap[t.To], PKToAliasMap[t.From], t.Value)
+	}
+}
+
 func userExists(user string) (bool) {
 	for i := 0; i < len(users); i++ {
 		if users[i] == user {
@@ -231,6 +242,7 @@ func newChain(chainID string) (Chain) {
 
 	newB := NewBlock(hash)
 	genesis.balance = 1000000
+	aliasToWallet["Genesis"] = genesis
 	newB, err := newB.addTx(Transaction{genesis.publicKey, satoshi.publicKey, 1000})
 	if err != nil {
 		panic(err)
@@ -328,6 +340,8 @@ func main() {
 			printBal(splitInput[1])
 		case "users":
 			printUsers()
+		case "block":
+			printBlock()
 		case "send":
 			fromUser := splitInput[1]
 			toUser := splitInput[2]
